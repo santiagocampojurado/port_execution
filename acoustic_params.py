@@ -9,13 +9,12 @@ import datetime
 import time
 from utils import *
 import csv
-import boto3  # <-- Import boto3
+import boto3
 
 FORMAT = pyaudio.paFloat32
 CHANNELS = 1
 RATE = 44100
 CHUNK_SIZE = 11025
-DEVICE_IDX = 1
 GAIN = 35
 C = 0.9
 OUTPUT_FILE = "acoustic_parameters.csv"
@@ -29,6 +28,26 @@ bA, aA = a_weighting_coeffs_design(RATE)
 bC, aC = c_weighting_coeffs_design(RATE)
 third_oct, octave = filterbanks(RATE)
 fast_samples = int(RATE / 8)
+
+def get_device_index(target_name="Sound Blaster Play! 3"):
+    """Automatically find the input device index by name."""
+    p = pyaudio.PyAudio()
+    device_index = None
+
+    for i in range(p.get_device_count()):
+        device_info = p.get_device_info_by_index(i)
+        print(f"Device {i}: {device_info['name']}")
+        if target_name.lower() in device_info['name'].lower() and device_info['maxInputChannels'] > 0:
+            device_index = i
+            print(f"Found target device: {device_info['name']} (Index: {device_index})")
+            break
+
+    p.terminate()
+
+    if device_index is None:
+        raise ValueError(f"Target audio device '{target_name}' not found.")
+    
+    return device_index
 
 def initialize_csv(file_path):
     with open(file_path, mode="w", newline="") as file:
@@ -81,25 +100,19 @@ def callback(in_data, frame_count, time_info, status):
     # data row
     data = [timestamp, round(La, 2), round(Lc, 2), round(Lc_La, 2), round(Lmax, 2), round(Lmin, 2)] + [round(level, 2) for level in oct_levels]
     
-    # printing how many columns there are:
-    # print(f"Number of columns: {len(data)}")
-    # exit()
-    
     append_to_csv(OUTPUT_FILE, data)
     print(f"Data recorded at {timestamp}")
 
     return (in_data, pyaudio.paContinue)
 
-
-
-def record_audio():
+def record_audio(device_index):
     p = pyaudio.PyAudio()
     stream = p.open(format=FORMAT,
                     channels=CHANNELS,
                     rate=RATE,
                     input=True,
                     frames_per_buffer=CHUNK_SIZE,
-                    input_device_index=DEVICE_IDX,
+                    input_device_index=device_index,
                     stream_callback=callback)
 
     try:
@@ -115,16 +128,16 @@ def record_audio():
         stream.close()
         p.terminate()
 
-
-
-
 def main():
     try:
+        device_index = get_device_index()  # Auto-detect the device index
+        print(f"Using device index: {device_index}")
+
         print("Initializing CSV...")
         initialize_csv(OUTPUT_FILE)
 
         print("Starting recording...")
-        record_audio()
+        record_audio(device_index)
     except KeyboardInterrupt:
         print("Recording interrupted by user.")
     except Exception as e:
