@@ -20,7 +20,7 @@ C = 0.9
 OUTPUT_FILE = "acoustic_parameters.csv"
 
 # S3 bucket info
-S3_BUCKET_NAME = "demo-prototype-aac-2025"   # replace with your bucket name
+S3_BUCKET_NAME = "demo-prototype-aac-2025"
 S3_OBJECT_NAME = "acoustic_parameters.csv"  # object key in S3
 
 # coefficients for A-weighting filter
@@ -62,6 +62,8 @@ def append_to_csv(file_path, data):
         writer = csv.writer(file)
         writer.writerow(data)
 
+
+
 def db_level(signal, C=0.9):
     p_ref = 0.000002
     level = 20 * np.log10(np.sqrt(np.mean(np.power(signal, 2))) / p_ref) + C
@@ -71,6 +73,8 @@ def db_oct_level(signal, C=0.9):
     y_oct, _ = third_oct.filter(signal)
     oct_level_temp = [db_level(y_band, C) for y_band in y_oct.T]
     return oct_level_temp
+
+
 
 def callback(in_data, frame_count, time_info, status):
     global bA, aA, bC, aC, fast_samples, C, third_oct, octave
